@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import { Box, useInput, useApp } from 'ink';
+import { useEffect, useState, useCallback } from 'react';
+import { Box, Text as InkText, useInput, useApp } from 'ink';
 import { listAgents } from '../agent/registry.ts';
 import { readHeartbeat } from '../agent/heartbeat.ts';
+import { authRegistry } from '../auth/registry.ts';
 import type { AgentRow } from './mock-data.ts';
 import { StatusBar } from './components/StatusBar.tsx';
 import { AgentTable } from './components/AgentTable.tsx';
@@ -30,16 +31,23 @@ function loadLiveAgents(): AgentRow[] {
 export function App() {
   const { exit } = useApp();
   const [agents, setAgents] = useState<AgentRow[]>(loadLiveAgents);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setAgents(loadLiveAgents());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const [providerCount, setProviderCount] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [namespaceFilter, setNamespaceFilter] = useState('all');
   const [view, setView] = useState<View>('table');
+  const [statusMsg, setStatusMsg] = useState('');
+
+  // Refresh agents + providers every 1s
+  useEffect(() => {
+    const refresh = async () => {
+      setAgents(loadLiveAgents());
+      const statuses = await authRegistry.getStatus();
+      setProviderCount(statuses.filter(s => s.isValid).length);
+    };
+    refresh();
+    const timer = setInterval(refresh, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const filteredAgents = namespaceFilter === 'all'
     ? agents
@@ -56,28 +64,39 @@ export function App() {
     }
   });
 
-  async function handleCommand(input: string) {
+  const handleCommand = useCallback(async (input: string) => {
     const parsed = parseCommand(input);
     if (parsed.type === 'system') {
       const cmd = parsed.command ?? '';
       if (cmd === 'quit' || cmd === 'q') exit();
       else if (cmd.startsWith('ns ')) {
-        setNamespaceFilter(cmd.slice(3).trim() || 'all');
+        const ns = cmd.slice(3).trim() || 'all';
+        setNamespaceFilter(ns);
         setSelectedIndex(0);
+        setStatusMsg(`Namespace filter: ${ns}`);
+      } else if (cmd.startsWith('broadcast ')) {
+        const msg = cmd.slice(10).trim();
+        broadcast('user', msg);
+        setStatusMsg(`Broadcast sent: ${msg}`);
       }
-      else if (cmd.startsWith('broadcast ')) broadcast('user', cmd.slice(10).trim());
     } else if (parsed.type === 'manual' && parsed.task) {
-      await submitTask(parsed.task, parsed.agentName);
+      const taskId = await submitTask(parsed.task, parsed.agentName);
+      setStatusMsg(`Task ${taskId.slice(0, 8)} → ${parsed.agentName}`);
     } else if (parsed.type === 'auto' && parsed.task) {
-      await submitTask(parsed.task);
+      const taskId = await submitTask(parsed.task);
+      setStatusMsg(`Task ${taskId.slice(0, 8)} submitted`);
     }
-  }
+  }, [exit]);
 
   const activeTaskCount = agents.filter(a => a.status === 'running').length;
 
   return (
     <Box flexDirection="column" height="100%">
-      <StatusBar agentCount={agents.length} activeTaskCount={activeTaskCount} />
+      <StatusBar
+        agentCount={agents.length}
+        activeTaskCount={activeTaskCount}
+        providerCount={providerCount}
+      />
       <Box flexGrow={1}>
         {view === 'table' ? (
           <AgentTable agents={filteredAgents} selectedIndex={selectedIndex} />
@@ -86,7 +105,12 @@ export function App() {
         )}
       </Box>
       <NamespaceFilter namespace={namespaceFilter} />
-      <CommandBar onSubmit={handleCommand} placeholder="Type a task or :command..." />
+      {statusMsg ? (
+        <Box paddingX={1}>
+          <InkText color="green">{statusMsg}</InkText>
+        </Box>
+      ) : null}
+      <CommandBar onSubmit={handleCommand} placeholder="Task or :q :ns <ns> @agent <task> 공지! <msg>" />
     </Box>
   );
 }
