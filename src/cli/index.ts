@@ -248,6 +248,15 @@ tasksCmd
     console.log(`Task ${task.id.slice(0, 8)} cancelled`);
   });
 
+tasksCmd
+  .command('archive')
+  .description('Move completed and failed tasks to history')
+  .action(async () => {
+    const { archiveCompletedTasks } = await import('../orchestrator/lifecycle.ts');
+    await archiveCompletedTasks();
+    console.log('Archived completed and failed tasks to .agent-cli/history/');
+  });
+
 // agentflow chat <agent> <message...> — one-shot direct conversation
 program
   .command('chat')
@@ -286,6 +295,60 @@ program
       console.error(`Chat failed: ${(err as Error).message}`);
       console.error('Tip: run "agentflow auth login" or "agentflow auth add --provider openai --key sk-xxx"');
       process.exit(1);
+    }
+  });
+
+// agentflow orchestrate <task> — start-all + run in one command
+program
+  .command('orchestrate')
+  .alias('go')
+  .argument('<task...>', 'Task to run')
+  .description('Start all agents and submit a task (shortcut for start-all + run)')
+  .option('--agent <name>', 'Target a specific agent')
+  .option('--wait', 'Wait for task completion')
+  .action(async (words: string[], opts: { agent?: string; wait?: boolean }) => {
+    const { listAgents } = await import('../agent/registry.ts');
+    const { isAlive } = await import('../agent/heartbeat.ts');
+    const { tmuxManager } = await import('../agent/tmux-manager.ts');
+
+    const task = words.join(' ');
+    const agents = listAgents();
+    const stopped = agents.filter(a => !isAlive(a.name));
+
+    if (stopped.length > 0) {
+      console.log(`Starting ${stopped.length} agent(s)...`);
+      for (const agent of stopped) {
+        const alive = await tmuxManager.isSessionAlive(agent.name);
+        if (!alive) {
+          await tmuxManager.createSession(agent.name, `agentflow agent-worker ${agent.name}`);
+          console.log(`  ↑ ${agent.name}`);
+        }
+      }
+      // Brief pause for workers to initialize
+      await Bun.sleep(500);
+    }
+
+    const { submitTask } = await import('../orchestrator/lifecycle.ts');
+    const taskId = await submitTask(task, opts.agent);
+    console.log(`\nTask submitted: ${taskId.slice(0, 8)}`);
+    console.log(`  ${task}`);
+    if (opts.agent) console.log(`  → ${opts.agent}`);
+
+    if (opts.wait) {
+      const { getTask } = await import('../agent/tasks.ts');
+      process.stdout.write('  Waiting');
+      while (true) {
+        await Bun.sleep(1000);
+        const t = getTask(taskId);
+        if (!t || t.state === 'completed' || t.state === 'failed') {
+          process.stdout.write('\n');
+          console.log(`  Status: ${t?.state ?? 'not found'}`);
+          break;
+        }
+        process.stdout.write('.');
+      }
+    } else {
+      console.log(`\n  Watch: agentflow  |  Logs: agentflow agents logs <name>`);
     }
   });
 
