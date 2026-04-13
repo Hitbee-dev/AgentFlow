@@ -1,8 +1,0 @@
-{"t":0,"agent":"system","event":"keyword_detected","keyword":"deep-interview"}
-{"t":0,"agent":"ac8be73","agent_type":"Explore","event":"agent_start","parent_mode":"none"}
-{"t":0,"agent":"a2cd559","agent_type":"Explore","event":"agent_start","parent_mode":"none"}
-{"t":0,"agent":"a22ba32","agent_type":"Explore","event":"agent_start","parent_mode":"none"}
-{"t":0,"agent":"a22ba32","agent_type":"Explore","event":"agent_stop","success":true,"duration_ms":445076}
-{"t":0,"agent":"ac8be73","agent_type":"Explore","event":"agent_stop","success":true,"duration_ms":561787}
-{"t":0,"agent":"a2cd559","agent_type":"Explore","event":"agent_stop","success":true,"duration_ms":641792}
-{"t":0,"agent":"system","event":"skill_invoked","skill_name":"oh-my-claudecode:plan"}

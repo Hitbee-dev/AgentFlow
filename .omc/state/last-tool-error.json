@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"git push -u origin setup/initial-structure 2>&1\",\"description\":\"Push to GitHub\"}",
-  "error": "Exit code 128\nremote: Permission to Hitbee-dev/AgentFlow.git denied to CK-Genon.\nfatal: unable to access 'https://github.com/Hitbee-dev/AgentFlow.git/': The requested URL returned error: 403\n[rerun: b42]",
-  "timestamp": "2026-04-13T14:05:52.892Z",
-  "retry_count": 3
-}

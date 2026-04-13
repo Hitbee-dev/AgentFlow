@@ -2,5 +2,6 @@ node_modules/
 dist/
 .agent-cli/
 claude/
+.omc/
 .env
 *.log
