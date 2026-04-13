@@ -68,18 +68,43 @@ program
   )
   .addCommand(
     new Command('status')
-      .argument('[id]', 'Pipeline ID')
+      .argument('[id]', 'Pipeline ID (or prefix)')
       .description('Show pipeline status')
       .action(async (id?: string) => {
         const { getActivePipelines, getPipelineStatus } = await import('../pipeline/index.ts');
+        const { getGateResult } = await import('../pipeline/gates.ts');
+        const GATES = ['security-review', 'code-review', 'qa-test'];
+
+        const printPipeline = (p: Awaited<ReturnType<typeof getPipelineStatus>>) => {
+          if (!p) return;
+          const statusColor: Record<string, string> = { running: '🔵', completed: '✅', failed: '❌', cancelled: '⭕' };
+          console.log(`\nPipeline: ${p.id.slice(0, 8)}`);
+          console.log(`  Branch:  ${p.branch}`);
+          console.log(`  Status:  ${statusColor[p.status] ?? ''} ${p.status}`);
+          console.log(`  Stage:   ${p.currentStage}`);
+          console.log(`  Started: ${new Date(p.createdAt).toLocaleString()}`);
+          console.log(`\n  Gates:`);
+          for (const gate of GATES) {
+            const result = getGateResult(p.id, gate);
+            const icon = result?.status === 'pass' ? '✓' : result?.status === 'fail' ? '✗' : '…';
+            const status = result?.status ?? 'pending';
+            console.log(`    ${icon} ${gate.padEnd(16)} ${status}`);
+          }
+        };
+
         if (id) {
-          const p = getPipelineStatus(id);
+          // Support prefix matching
+          let p = getPipelineStatus(id);
+          if (!p) {
+            const all = getActivePipelines();
+            p = all.find(x => x.id.startsWith(id)) ?? null;
+          }
           if (!p) { console.log('Pipeline not found'); return; }
-          console.log(`${p.id}  ${p.status}  ${p.currentStage}  ${p.branch}`);
+          printPipeline(p);
         } else {
           const active = getActivePipelines();
           if (!active.length) { console.log('No active pipelines'); return; }
-          active.forEach(p => console.log(`${p.id}  ${p.status}  ${p.currentStage}  ${p.branch}`));
+          for (const p of active) printPipeline(p);
         }
       })
   )
@@ -221,6 +246,18 @@ tasksCmd
     }
     updateTask(task.id, { state: 'failed' });
     console.log(`Task ${task.id.slice(0, 8)} cancelled`);
+  });
+
+// agentflow broadcast <message>
+program
+  .command('broadcast')
+  .argument('<message...>', 'Message to broadcast to all agents')
+  .description('Send a broadcast message to all running agents')
+  .action(async (words: string[]) => {
+    const { broadcast } = await import('../agent/broadcast.ts');
+    const message = words.join(' ');
+    broadcast('user', message);
+    console.log(`Broadcast sent: ${message}`);
   });
 
 // agentflow status — quick overview of agents + tasks + auth
