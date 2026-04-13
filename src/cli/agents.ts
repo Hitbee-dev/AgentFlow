@@ -105,9 +105,8 @@ export function buildAgentsCommand(): Command {
   // agentflow agents start <name>
   agents
     .command('start <name>')
-    .description('Start a tmux session for an agent')
-    .option('--command <cmd>', 'Command to run in session', 'bun run src/cli/index.ts')
-    .action(async (name: string, opts: { command: string }) => {
+    .description('Start a tmux session for an agent (runs worker process)')
+    .action(async (name: string) => {
       const agentConfig = getAgent(name);
       if (!agentConfig) {
         console.error(`Agent "${name}" not found. Use "agentflow agents add" to register it.`);
@@ -118,8 +117,11 @@ export function buildAgentsCommand(): Command {
         console.log(`Agent "${name}" session is already running.`);
         return;
       }
-      await tmuxManager.createSession(name, opts.command);
-      console.log(`Agent "${name}" session started.`);
+      // Run the agent worker process inside tmux
+      const workerCmd = `agentflow agent-worker ${name}`;
+      await tmuxManager.createSession(name, workerCmd);
+      console.log(`Agent "${name}" started (tmux session: agentflow-${name})`);
+      console.log(`  Attach: agentflow agents attach ${name}`);
     });
 
   // agentflow agents stop <name>
@@ -147,6 +149,30 @@ export function buildAgentsCommand(): Command {
         process.exit(1);
       }
       await tmuxManager.attachSession(name);
+    });
+
+  // agentflow agents logs <name> [--lines N]
+  agents
+    .command('logs <name>')
+    .description('Show recent log output from an agent tmux session')
+    .option('-n, --lines <n>', 'Number of lines to show', '50')
+    .action(async (name: string, opts: { lines: string }) => {
+      const alive = await tmuxManager.isSessionAlive(name);
+      if (!alive) {
+        console.error(`Agent "${name}" has no active session.`);
+        process.exit(1);
+      }
+      const n = parseInt(opts.lines, 10) || 50;
+      // Capture tmux pane output
+      const proc = Bun.spawnSync([
+        'tmux', 'capture-pane', '-p', '-t', `agentflow-${name}`, '-S', `-${n}`,
+      ]);
+      const output = new TextDecoder().decode(proc.stdout);
+      if (!output.trim()) {
+        console.log(`(no output from agent "${name}")`);
+      } else {
+        process.stdout.write(output);
+      }
     });
 
   return agents;

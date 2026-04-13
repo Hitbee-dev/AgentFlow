@@ -1,4 +1,4 @@
-import React from 'react';
+import { useState } from 'react';
 import { Box, Text } from 'ink';
 import TextInput from 'ink-text-input';
 
@@ -8,7 +8,7 @@ interface CommandBarProps {
 }
 
 export function CommandBar({ onSubmit, placeholder = 'Type a task or :command...' }: CommandBarProps) {
-  const [value, setValue] = React.useState('');
+  const [value, setValue] = useState('');
 
   function handleSubmit(input: string) {
     onSubmit(input);

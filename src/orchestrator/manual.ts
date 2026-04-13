@@ -30,9 +30,9 @@ export function parseCommand(input: string): ParsedCommand {
     };
   }
 
-  // Broadcast: 公지! or /broadcast
-  if (trimmed.startsWith('公지!') || trimmed.startsWith('/broadcast ')) {
-    const message = trimmed.startsWith('公지!') ? trimmed.slice(3).trim() : trimmed.slice(11).trim();
+  // Broadcast: 공지! or /broadcast
+  if (trimmed.startsWith('공지!') || trimmed.startsWith('/broadcast ')) {
+    const message = trimmed.startsWith('공지!') ? trimmed.slice(3).trim() : trimmed.slice(11).trim();
     return { type: 'system', command: `broadcast ${message}` };
   }
 
