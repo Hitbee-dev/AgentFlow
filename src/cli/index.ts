@@ -400,6 +400,72 @@ program
     console.log(`Broadcast sent: ${message}`);
   });
 
+// agentflow doctor — diagnose system health
+program
+  .command('doctor')
+  .description('Diagnose system health (tmux, auth, config, binary)')
+  .action(async () => {
+    let allOk = true;
+    const check = (label: string, ok: boolean, detail?: string) => {
+      const icon = ok ? '✓' : '✗';
+      const color = ok ? '\x1b[32m' : '\x1b[31m';
+      const reset = '\x1b[0m';
+      console.log(`  ${color}${icon}${reset} ${label}${detail ? `  (${detail})` : ''}`);
+      if (!ok) allOk = false;
+    };
+
+    console.log('\nagentflow doctor\n');
+
+    // 1. Binary in PATH
+    const binaryPath = Bun.which('agentflow');
+    check('agentflow in PATH', binaryPath !== null, binaryPath ?? 'not found');
+
+    // 2. tmux
+    const tmuxCheck = Bun.spawnSync(['tmux', '-V']);
+    const tmuxVersion = new TextDecoder().decode(tmuxCheck.stdout).trim();
+    check('tmux available', tmuxCheck.exitCode === 0, tmuxVersion || 'not found');
+
+    // 3. Config file
+    const { loadConfig } = await import('../config/index.ts');
+    let configOk = false;
+    try { loadConfig(); configOk = true; } catch { configOk = false; }
+    check('config valid', configOk, '.agent-cli/config.json');
+
+    // 4. Auth
+    const { authRegistry } = await import('../auth/registry.ts');
+    const statuses = await authRegistry.getStatus();
+    const validProviders = statuses.filter(s => s.isValid);
+    check(
+      'at least one provider authenticated',
+      validProviders.length > 0,
+      validProviders.length > 0
+        ? validProviders.map(s => s.provider).join(', ')
+        : 'run: agentflow auth login',
+    );
+
+    // 5. Agents registered
+    const { listAgents } = await import('../agent/registry.ts');
+    const agents = listAgents();
+    check('agents registered', agents.length > 0, `${agents.length} agents`);
+
+    // 6. Agent sessions
+    const { tmuxManager } = await import('../agent/tmux-manager.ts');
+    const sessionChecks = await Promise.all(agents.map(a => tmuxManager.isSessionAlive(a.name)));
+    const runningSessions = sessionChecks.filter(Boolean).length;
+    check(
+      'agent sessions',
+      runningSessions > 0,
+      runningSessions > 0 ? `${runningSessions}/${agents.length} running` : 'run: agentflow agents start-all',
+    );
+
+    console.log('');
+    if (allOk) {
+      console.log('  \x1b[32mAll checks passed\x1b[0m\n');
+    } else {
+      console.log('  \x1b[33mSome checks failed — see above for details\x1b[0m\n');
+    }
+  });
+
 // agentflow status — quick overview of agents + tasks + auth
 program
   .command('status')
