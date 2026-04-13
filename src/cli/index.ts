@@ -117,6 +117,42 @@ program
         cancelPipeline(id);
         console.log(`Pipeline ${id} cancelled`);
       })
+  )
+  .addCommand(
+    new Command('list')
+      .alias('ls')
+      .description('List all pipelines (active and completed)')
+      .action(async () => {
+        const PIPELINE_DIR = '.agent-cli/pipeline';
+        const { existsSync, readdirSync } = await import('fs');
+        if (!existsSync(PIPELINE_DIR)) {
+          console.log('No pipelines found.');
+          return;
+        }
+        const ids = readdirSync(PIPELINE_DIR);
+        if (!ids.length) { console.log('No pipelines found.'); return; }
+        const { getPipelineStatus } = await import('../pipeline/index.ts');
+        const pipelines = ids
+          .map(id => getPipelineStatus(id))
+          .filter(Boolean)
+          .sort((a, b) => a!.createdAt.localeCompare(b!.createdAt));
+        const statusIcon: Record<string, string> = {
+          running: '🔵', completed: '✅', failed: '❌', cancelled: '⭕',
+        };
+        const header = ['ID', 'STATUS', 'STAGE', 'BRANCH'];
+        const rows = pipelines.map(p => [
+          p!.id.slice(0, 8),
+          `${statusIcon[p!.status] ?? ''} ${p!.status}`,
+          p!.currentStage,
+          p!.branch.slice(0, 30),
+        ]);
+        if (!rows.length) { console.log('No pipelines found.'); return; }
+        const widths = header.map((h, i) => Math.max(h.length, ...rows.map(r => r[i]!.length)));
+        const fmt = (cols: string[]) => cols.map((c, i) => c.padEnd(widths[i]!)).join('  ');
+        console.log(fmt(header));
+        console.log(widths.map(w => '-'.repeat(w)).join('  '));
+        for (const row of rows) console.log(fmt(row));
+      })
   );
 
 // TUI command
