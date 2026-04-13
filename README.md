@@ -63,6 +63,7 @@ agentflow
 agentflow              # Launch k9s-style dashboard
 agentflow tui          # Same as above
 agentflow status       # Quick overview (agents + tasks + auth)
+agentflow doctor       # System health check (PATH, tmux, auth, sessions)
 ```
 
 **TUI keyboard shortcuts:**
@@ -102,10 +103,12 @@ agentflow agents logs <name> [-n 50]       # View agent output
 agentflow run <task>                       # Submit task (auto-assigned)
 agentflow run --agent <name> <task>        # Assign to specific agent
 agentflow run --wait <task>                # Wait for completion
+agentflow orchestrate|go <task>            # Start-all + run in one command
 agentflow chat <agent> <message>           # One-shot streaming chat
 agentflow tasks list [--state <s>]         # List tasks
 agentflow tasks show <id>                  # Task details (supports prefix)
 agentflow tasks cancel <id>                # Cancel pending task
+agentflow tasks archive                    # Move done/failed to history
 ```
 
 ### Broadcast
@@ -118,6 +121,7 @@ agentflow broadcast <message>              # Send to all agents
 ### Pipeline
 ```bash
 agentflow pipeline start "<description>"   # Start automated dev pipeline
+agentflow pipeline list|ls                 # List all pipelines
 agentflow pipeline status [id]             # Show pipeline + gate results
 agentflow pipeline cancel <id>             # Cancel pipeline
 ```
@@ -129,6 +133,7 @@ agentflow config get defaults.provider     # Get a value
 agentflow config set defaults.provider anthropic  # Set a value
 agentflow config set-prompt <agent> "<prompt>"    # Custom system prompt
 agentflow config models                    # List all 8 supported models
+agentflow config reset                     # Reset to defaults (keeps auth)
 agentflow install                          # Re-run setup wizard
 ```
 
