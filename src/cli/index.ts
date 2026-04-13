@@ -248,6 +248,47 @@ tasksCmd
     console.log(`Task ${task.id.slice(0, 8)} cancelled`);
   });
 
+// agentflow chat <agent> <message...> — one-shot direct conversation
+program
+  .command('chat')
+  .argument('<agent>', 'Agent name to chat with')
+  .argument('<message...>', 'Message to send')
+  .description('Send a one-shot message to an agent and stream the response')
+  .option('--no-stream', 'Disable streaming, print full response at end')
+  .action(async (agentName: string, words: string[], opts: { stream: boolean }) => {
+    const { getAgent } = await import('../agent/registry.ts');
+    const { chat } = await import('../provider/chat.ts');
+    const { toModelID } = await import('../provider/types.ts');
+
+    const agent = getAgent(agentName);
+    if (!agent) {
+      console.error(`Agent "${agentName}" not found. Run "agentflow agents list" to see available agents.`);
+      process.exit(1);
+    }
+
+    const message = words.join(' ');
+    console.error(`[${agent.name}/${agent.model}]`);
+
+    try {
+      let fullResponse = '';
+      for await (const chunk of chat(
+        [{ role: 'user', content: message }],
+        { model: toModelID(agent.model), system: agent.prompt },
+      )) {
+        if (chunk.type === 'text') {
+          fullResponse += chunk.text;
+          if (opts.stream) process.stdout.write(chunk.text ?? '');
+        }
+      }
+      if (!opts.stream) process.stdout.write(fullResponse);
+      process.stdout.write('\n');
+    } catch (err) {
+      console.error(`Chat failed: ${(err as Error).message}`);
+      console.error('Tip: run "agentflow auth login" or "agentflow auth add --provider openai --key sk-xxx"');
+      process.exit(1);
+    }
+  });
+
 // agentflow broadcast <message>
 program
   .command('broadcast')

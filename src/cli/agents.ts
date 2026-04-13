@@ -175,6 +175,37 @@ export function buildAgentsCommand(): Command {
       }
     });
 
+  // agentflow agents info <name>
+  agents
+    .command('info <name>')
+    .description('Show detailed config for an agent')
+    .action(async (name: string) => {
+      const agentConfig = getAgent(name);
+      if (!agentConfig) {
+        console.error(`Agent "${name}" not found.`);
+        process.exit(1);
+      }
+      const sessionAlive = await tmuxManager.isSessionAlive(name);
+      const heartbeatAlive = isAlive(name);
+      let status = 'stopped';
+      if (sessionAlive && heartbeatAlive) status = 'running';
+      else if (sessionAlive) status = 'session-only';
+
+      console.log(`Agent: ${agentConfig.name}`);
+      console.log(`  Status:      ${status}`);
+      console.log(`  Namespace:   ${agentConfig.namespace}`);
+      console.log(`  Provider:    ${agentConfig.provider}`);
+      console.log(`  Model:       ${agentConfig.model}`);
+      console.log(`  Description: ${agentConfig.description}`);
+      console.log(`  Prompt:`);
+      console.log(`    ${agentConfig.prompt.split('\n').join('\n    ')}`);
+      if (sessionAlive) {
+        console.log(`\n  Tmux session: agentflow-${name}`);
+        console.log(`  Attach: agentflow agents attach ${name}`);
+        console.log(`  Logs:   agentflow agents logs ${name}`);
+      }
+    });
+
   // agentflow agents start-all
   agents
     .command('start-all')
