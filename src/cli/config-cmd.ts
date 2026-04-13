@@ -61,6 +61,18 @@ export function buildConfigCommand(): Command {
       console.log(JSON.stringify(config, null, 2));
     });
 
+  cmd.command('reset')
+    .description('Reset config to defaults (keeps auth credentials)')
+    .action(async () => {
+      const { saveConfig } = await import('../config/index.ts');
+      saveConfig({
+        providers: {},
+        agents: {},
+        defaults: { provider: '', model: '', namespace: 'default' },
+      });
+      console.log('Config reset to defaults.');
+    });
+
   cmd.command('models')
     .description('List all available models by provider')
     .action(async () => {

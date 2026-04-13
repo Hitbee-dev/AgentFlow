@@ -90,6 +90,7 @@ export function App() {
   }, [exit]);
 
   const activeTaskCount = agents.filter(a => a.status === 'running').length;
+  const availableNamespaces = [...new Set(agents.map(a => a.namespace))];
 
   return (
     <Box flexDirection="column" height="100%">
@@ -105,7 +106,7 @@ export function App() {
           <AgentDetail agent={filteredAgents[selectedIndex]!} />
         )}
       </Box>
-      <NamespaceFilter namespace={namespaceFilter} />
+      <NamespaceFilter namespace={namespaceFilter} available={availableNamespaces} />
       {statusMsg ? (
         <Box paddingX={1}>
           <InkText color="green">{statusMsg}</InkText>
