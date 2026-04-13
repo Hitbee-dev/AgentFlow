@@ -24,6 +24,7 @@ function loadLiveAgents(): AgentRow[] {
       task: hb?.taskId ?? '—',
       provider: agent.provider,
       namespace: agent.namespace,
+      model: agent.model,
     };
   });
 }
