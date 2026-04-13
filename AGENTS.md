@@ -50,19 +50,51 @@
 ### 완료된 작업
 - [x] Deep Interview 완료 (10라운드, 최종 모호도 16%)
 - [x] Spec 파일 작성: `/Users/chankim/dev/AgentFlow/.omc/specs/deep-interview-agent-cli.md`
-- [x] 초기 Plan 파일 작성: `~/.claude/plans/zany-knitting-planet.md`
 - [x] 프로젝트명 결정: AgentFlow (agentflow)
 - [x] npm 패키지명 선점: `agentflow-cli` (0.0.1 publish 완료 ✓)
-- [x] `package.json` 생성 (0.0.1 플레이스홀더)
-- [x] `README.md` 업데이트
 - [x] GitHub Repo: `Hitbee-dev/AgentFlow` (git remote 수정 완료)
 - [x] **Ralplan 합의 완료** (2 iteration, Critic APPROVE)
-  - 플랜: `/Users/chankim/dev/AgentFlow/.omc/plans/agentflow-implementation.md`
-  - 총 추정: 46-67일 (Phase 0-8)
-- [x] **Phase 0-8 전체 구현 완료** (scaffold, 56개 파일, ~3200줄)
-  - Branch: `setup/initial-structure` (3 커밋)
-  - Binary: `dist/agentflow` (648 modules, bun compile)
-  - 검증: auth/agents/config/install/pipeline/tui 모든 커맨드 동작 확인
+- [x] **Phase 0-8 전체 구현 + 심화 완료** (731 modules, bun compile)
+  - Branch: `setup/initial-structure` (8 커밋)
+  - Binary: `~/.local/bin/agentflow` (글로벌 설치 완료)
+  - 41개 테스트 통과 (6 파일)
+
+### 구현된 전체 커맨드
+
+| 커맨드 | 설명 |
+|--------|------|
+| `agentflow` | TUI 대시보드 실행 |
+| `agentflow status` | 에이전트/태스크/인증 전체 현황 |
+| `agentflow auth login` | Claude OAuth PKCE 로그인 |
+| `agentflow auth add --provider openai --key sk-xxx` | API 키 등록 |
+| `agentflow auth status` | 인증 상태 |
+| `agentflow auth logout` | 인증 삭제 |
+| `agentflow agents list` | 에이전트 목록 |
+| `agentflow agents info <name>` | 에이전트 상세 |
+| `agentflow agents add --name <n> --provider <p>` | 에이전트 등록 |
+| `agentflow agents start <name>` | tmux 워커 기동 |
+| `agentflow agents start-all` | 전체 에이전트 기동 |
+| `agentflow agents stop <name>` | 에이전트 중지 |
+| `agentflow agents stop-all` | 전체 에이전트 중지 |
+| `agentflow agents attach <name>` | tmux 세션 연결 |
+| `agentflow agents logs <name>` | 에이전트 로그 |
+| `agentflow run <task>` | 태스크 제출 (자동 분배) |
+| `agentflow run --agent <n> <task>` | 특정 에이전트에 제출 |
+| `agentflow run --wait <task>` | 태스크 완료 대기 |
+| `agentflow chat <agent> <message>` | 직접 대화 (스트리밍) |
+| `agentflow broadcast <msg>` | 전체 에이전트 공지 |
+| `agentflow tasks list` | 태스크 목록 |
+| `agentflow tasks show <id>` | 태스크 상세 |
+| `agentflow tasks cancel <id>` | 태스크 취소 |
+| `agentflow pipeline start <desc>` | 파이프라인 시작 |
+| `agentflow pipeline status [id]` | 파이프라인 + 게이트 현황 |
+| `agentflow pipeline cancel <id>` | 파이프라인 취소 |
+| `agentflow config get <key>` | 설정 조회 |
+| `agentflow config set <key> <val>` | 설정 변경 |
+| `agentflow config set-prompt <agent> <prompt>` | 에이전트 프롬프트 변경 |
+| `agentflow config show` | 전체 설정 출력 |
+| `agentflow config models` | 지원 모델 목록 |
+| `agentflow install` | 초기 설정 마법사 |
 
 ### 미완료 / 다음 세션에서 해야 할 작업
 
@@ -74,7 +106,7 @@ git push -u origin setup/initial-structure
 ```
 
 **PR 생성** — `setup/initial-structure` → `master`
-- 모든 Phase 0-8 구현 완료 (3 커밋, 56개 파일, ~3200줄)
+- 모든 구현 완료 (8 커밋, ~4000줄, 41 테스트)
 
 #### 🟢 이후 구현 순서 (Phase별)
 

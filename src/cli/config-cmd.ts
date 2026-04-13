@@ -61,5 +61,29 @@ export function buildConfigCommand(): Command {
       console.log(JSON.stringify(config, null, 2));
     });
 
+  cmd.command('models')
+    .description('List all available models by provider')
+    .action(async () => {
+      const { MODEL_CATALOG } = await import('../provider/models.ts');
+      const { TIER_ALIASES } = await import('../provider/models.ts');
+      const providers = ['anthropic', 'google', 'openai'];
+      for (const provider of providers) {
+        const models = MODEL_CATALOG.filter(m => String(m.providerId) === provider);
+        console.log(`\n${provider.toUpperCase()}`);
+        console.log('─'.repeat(60));
+        for (const m of models) {
+          const tier = Object.entries(TIER_ALIASES[provider] ?? {})
+            .find(([, id]) => String(id) === String(m.id))?.[0] ?? '';
+          const tierBadge = tier ? ` [${tier}]` : '';
+          const streaming = m.supportsStreaming ? '~' : ' ';
+          const ctx = m.contextWindow >= 1_000_000
+            ? `${m.contextWindow / 1_000_000}M`
+            : `${m.contextWindow / 1_000}k`;
+          console.log(`  ${streaming} ${String(m.id).padEnd(32)} ${m.name.padEnd(20)} ctx:${ctx}${tierBadge}`);
+        }
+      }
+      console.log('\n  ~ = supports streaming');
+    });
+
   return cmd;
 }
