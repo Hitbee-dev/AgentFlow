@@ -111,14 +111,24 @@ program
   .option('--wait', 'Wait for task completion and stream output')
   .action(async (task: string, opts: { agent?: string; wait?: boolean }) => {
     const { submitTask } = await import('../orchestrator/lifecycle.ts');
+    const { listAgents } = await import('../agent/registry.ts');
+    const { isAlive } = await import('../agent/heartbeat.ts');
+
+    // Warn if no agents are running to process the task
+    const aliveAgents = listAgents().filter(a => isAlive(a.name));
+    if (!aliveAgents.length) {
+      console.log('Warning: No agents are currently running. Task will queue until an agent starts.');
+      console.log('  Start agents: agentflow agents start-all\n');
+    }
+
     try {
       const taskId = await submitTask(task, opts.agent);
-      console.log(`Task submitted: ${taskId}`);
+      console.log(`Task submitted: ${taskId.slice(0, 8)}`);
       if (opts.agent) {
         console.log(`  Assigned to: ${opts.agent}`);
       }
       console.log(`  Description: ${task}`);
-      console.log(`\n  Track progress: agentflow tasks show ${taskId}`);
+      console.log(`\n  Track progress: agentflow tasks show ${taskId.slice(0, 8)}`);
       console.log(`  Watch TUI:      agentflow tui`);
 
       if (opts.wait) {
@@ -211,6 +221,61 @@ tasksCmd
     }
     updateTask(task.id, { state: 'failed' });
     console.log(`Task ${task.id.slice(0, 8)} cancelled`);
+  });
+
+// agentflow status — quick overview of agents + tasks + auth
+program
+  .command('status')
+  .description('Show a quick overview of agents, tasks, and auth')
+  .action(async () => {
+    const { listAgents } = await import('../agent/registry.ts');
+    const { readHeartbeat, isAlive } = await import('../agent/heartbeat.ts');
+    const { listTasks } = await import('../agent/tasks.ts');
+    const { authRegistry } = await import('../auth/registry.ts');
+    const { tmuxManager } = await import('../agent/tmux-manager.ts');
+
+    console.log('\nAgentFlow Status');
+    console.log('═'.repeat(50));
+
+    // Agents
+    const agents = listAgents();
+    const agentRows = await Promise.all(
+      agents.map(async a => {
+        const hb = readHeartbeat(a.name);
+        const sessionAlive = await tmuxManager.isSessionAlive(a.name);
+        const heartbeatAlive = isAlive(a.name);
+        let status = 'stopped';
+        if (sessionAlive && heartbeatAlive) status = 'running';
+        else if (sessionAlive) status = 'session-only';
+        return { name: a.name, status, task: hb?.taskId ?? '—', namespace: a.namespace };
+      })
+    );
+
+    console.log('\n  Agents');
+    for (const a of agentRows) {
+      const icon = a.status === 'running' ? '●' : a.status === 'session-only' ? '◐' : '○';
+      console.log(`    ${icon} ${a.name.padEnd(12)} ${a.status.padEnd(14)} ns:${a.namespace}`);
+    }
+
+    // Tasks
+    const pending = listTasks('pending').length;
+    const running = listTasks('running').length;
+    const completed = listTasks('completed').length;
+    const failed = listTasks('failed').length;
+
+    console.log('\n  Tasks');
+    console.log(`    pending: ${pending}  running: ${running}  completed: ${completed}  failed: ${failed}`);
+
+    // Auth
+    const authStatuses = await authRegistry.getStatus();
+    console.log('\n  Auth');
+    for (const s of authStatuses) {
+      const icon = s.isValid ? '✓' : '✗';
+      const method = s.authMethod === 'oauth' ? 'OAuth' : 'API key';
+      console.log(`    ${icon} ${s.provider.padEnd(10)} ${method}`);
+    }
+
+    console.log('');
   });
 
 // agentflow agent-worker <name>  (internal: runs inside tmux session)

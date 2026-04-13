@@ -175,5 +175,45 @@ export function buildAgentsCommand(): Command {
       }
     });
 
+  // agentflow agents start-all
+  agents
+    .command('start-all')
+    .description('Start tmux sessions for all registered agents')
+    .action(async () => {
+      const agentList = listAgents();
+      if (!agentList.length) {
+        console.log('No agents registered. Use "agentflow agents add" to add agents.');
+        return;
+      }
+      for (const agent of agentList) {
+        const alive = await tmuxManager.isSessionAlive(agent.name);
+        if (alive) {
+          console.log(`  ${agent.name}: already running`);
+          continue;
+        }
+        const workerCmd = `agentflow agent-worker ${agent.name}`;
+        await tmuxManager.createSession(agent.name, workerCmd);
+        console.log(`  ${agent.name}: started`);
+      }
+      console.log('\nAll agents started. Use "agentflow agents list" to check status.');
+    });
+
+  // agentflow agents stop-all
+  agents
+    .command('stop-all')
+    .description('Stop all agent tmux sessions')
+    .action(async () => {
+      const agentList = listAgents();
+      for (const agent of agentList) {
+        const alive = await tmuxManager.isSessionAlive(agent.name);
+        if (!alive) {
+          console.log(`  ${agent.name}: not running`);
+          continue;
+        }
+        await tmuxManager.destroySession(agent.name);
+        console.log(`  ${agent.name}: stopped`);
+      }
+    });
+
   return agents;
 }
