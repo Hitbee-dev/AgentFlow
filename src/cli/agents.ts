@@ -12,6 +12,7 @@ import { Command } from 'commander';
 import { listAgents, getAgent, registerAgent } from '../agent/registry.js';
 import { tmuxManager } from '../agent/tmux-manager.js';
 import { isAlive } from '../agent/heartbeat.js';
+import { MODEL_CATALOG } from '../provider/models.js';
 import type { AgentConfig } from '../types/index.js';
 
 export function buildAgentsCommand(): Command {
@@ -84,10 +85,19 @@ export function buildAgentsCommand(): Command {
       const config = loadConfig();
       const defaultModels: Record<string, string> = {
         anthropic: 'claude-sonnet-4-6',
-        google: 'gemini-2-flash',
+        google: 'gemini-2.0-flash',
         openai: 'gpt-4o',
       };
       const model = opts.model ?? defaultModels[opts.provider] ?? 'claude-sonnet-4-6';
+
+      // Validate model exists in catalog
+      const validModels = MODEL_CATALOG.map(m => String(m.id));
+      if (!validModels.includes(model)) {
+        console.error(`Unknown model: "${model}"`);
+        console.error(`Valid models: ${validModels.join(', ')}`);
+        console.error('See all models: agentflow config models');
+        process.exit(1);
+      }
       const newAgent: AgentConfig = {
         name: opts.name,
         description: opts.description || `Agent ${opts.name}`,
