@@ -40,7 +40,11 @@ export function buildAuthCommand(): Command {
             break;
 
           case 'gemini':
-            await geminiOAuth.login();
+            if (key) {
+              await geminiOAuth.setApiKey(key);
+            } else {
+              await geminiOAuth.login();
+            }
             break;
 
           case 'openai': {
