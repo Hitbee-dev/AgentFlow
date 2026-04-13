@@ -12,6 +12,7 @@ import { Command } from 'commander';
 import { listAgents, getAgent, registerAgent } from '../agent/registry.js';
 import { tmuxManager } from '../agent/tmux-manager.js';
 import { isAlive } from '../agent/heartbeat.js';
+import type { AgentConfig } from '../types/index.js';
 
 export function buildAgentsCommand(): Command {
   const agents = new Command('agents').description('List and manage agents');
@@ -22,6 +23,11 @@ export function buildAgentsCommand(): Command {
     .description('List registered agents with their status')
     .option('--namespace <ns>', 'Filter by namespace')
     .action(async (opts: { namespace?: string }) => {
+      const { loadConfig } = await import('../config/index.ts');
+      const config = loadConfig();
+      for (const agent of Object.values(config.agents)) {
+        registerAgent(agent);
+      }
       const agentList = listAgents(opts.namespace);
       if (agentList.length === 0) {
         console.log('No agents found.');
@@ -73,22 +79,27 @@ export function buildAgentsCommand(): Command {
     .option('--namespace <ns>', 'Namespace', 'default')
     .option('--model <model>', 'Model ID')
     .option('--description <desc>', 'Agent description', '')
-    .action((opts: { name: string; provider: string; namespace: string; model?: string; description: string }) => {
+    .action(async (opts: { name: string; provider: string; namespace: string; model?: string; description: string }) => {
+      const { loadConfig, saveConfig } = await import('../config/index.ts');
+      const config = loadConfig();
       const defaultModels: Record<string, string> = {
         anthropic: 'claude-sonnet-4-6',
         google: 'gemini-2-flash',
         openai: 'gpt-4o',
       };
       const model = opts.model ?? defaultModels[opts.provider] ?? 'claude-sonnet-4-6';
-      registerAgent({
+      const newAgent: AgentConfig = {
         name: opts.name,
-        description: opts.description,
-        prompt: `You are ${opts.name}, an AI agent.`,
+        description: opts.description || `Agent ${opts.name}`,
+        prompt: `You are ${opts.name}, an AI assistant.`,
         model,
         provider: opts.provider,
         namespace: opts.namespace,
-      });
-      console.log(`Agent "${opts.name}" registered (provider: ${opts.provider}, model: ${model}, namespace: ${opts.namespace}).`);
+      };
+      config.agents[opts.name] = newAgent;
+      saveConfig(config);
+      registerAgent(newAgent);
+      console.log(`Agent "${opts.name}" added (provider: ${opts.provider}, model: ${model}, namespace: ${opts.namespace}).`);
     });
 
   // agentflow agents start <name>

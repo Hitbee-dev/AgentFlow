@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Box, useInput, useApp } from 'ink';
-import { MOCK_AGENTS } from './mock-data.ts';
+import { listAgents } from '../agent/registry.ts';
+import { readHeartbeat } from '../agent/heartbeat.ts';
+import type { AgentRow } from './mock-data.ts';
 import { StatusBar } from './components/StatusBar.tsx';
 import { AgentTable } from './components/AgentTable.tsx';
 import { AgentDetail } from './components/AgentDetail.tsx';
@@ -12,9 +14,29 @@ import { broadcast } from '../agent/broadcast.ts';
 
 type View = 'table' | 'detail';
 
+function loadLiveAgents(): AgentRow[] {
+  return listAgents().map(agent => {
+    const hb = readHeartbeat(agent.name);
+    return {
+      name: agent.name,
+      status: hb?.status ?? 'stopped',
+      task: hb?.taskId ?? '—',
+      provider: agent.provider,
+      namespace: agent.namespace,
+    };
+  });
+}
+
 export function App() {
   const { exit } = useApp();
-  const [agents] = useState(MOCK_AGENTS);
+  const [agents, setAgents] = useState<AgentRow[]>(loadLiveAgents);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setAgents(loadLiveAgents());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [namespaceFilter, setNamespaceFilter] = useState('all');
   const [view, setView] = useState<View>('table');

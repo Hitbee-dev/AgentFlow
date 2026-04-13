@@ -4,6 +4,7 @@
  * Default agents defined here; runtime registry is mutable in-memory.
  */
 
+import fs from 'fs';
 import type { AgentConfig } from '../types/index.js';
 
 export const DEFAULT_AGENTS: AgentConfig[] = [
@@ -53,6 +54,25 @@ export const DEFAULT_AGENTS: AgentConfig[] = [
 const registry: Map<string, AgentConfig> = new Map(
   DEFAULT_AGENTS.map(agent => [agent.name, agent]),
 );
+
+export function initRegistryFromConfig(): void {
+  const configPath = '.agent-cli/config.json';
+  if (!fs.existsSync(configPath)) return;
+  try {
+    const raw = fs.readFileSync(configPath, 'utf-8');
+    const config = JSON.parse(raw) as { agents?: Record<string, AgentConfig> };
+    if (config.agents) {
+      for (const agent of Object.values(config.agents)) {
+        registry.set(agent.name, agent);
+      }
+    }
+  } catch {
+    // ignore — config not available yet
+  }
+}
+
+// Load agents from config on startup
+initRegistryFromConfig();
 
 /** Get an agent config by name. Returns null if not found. */
 export function getAgent(name: string): AgentConfig | null {

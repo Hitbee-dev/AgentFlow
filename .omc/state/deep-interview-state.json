@@ -1,0 +1,20 @@
+{
+  "active": true,
+  "current_phase": "deep-interview",
+  "started_at": "2026-04-13T00:00:00Z",
+  "interview_id": "agent-cli-deep-001",
+  "type": "brownfield",
+  "initial_idea": "Multi-agent CLI orchestrator (agent-cli) that combines Claude Code + OpenCode with login auth (PaperClip-based), task distribution, broadcast announcements, agent monitoring, system prompts, and strict dev workflow (branch/plan/review/QA/PR)",
+  "rounds": "[]",
+  "current_ambiguity": "1.0",
+  "threshold": "0.2",
+  "codebase_context": "5 reference repos analyzed: claude-code (TypeScript/Bun, OAuth+PKCE, AgentTool/Team/Coordinator), paperclip (TypeScript/Node, better-auth+JWT, heartbeat agents, Express+PostgreSQL), opencode (TypeScript/Bun, Effect system, SolidJS TUI), oh-my-opencode (10 agents, 32 hooks, background manager), oh-my-claudecode (19 agents, 48+ hooks, 55-module team engine, 38 skills)",
+  "challenge_modes_used": "[]",
+  "ontology_snapshots": "[]",
+  "_meta": {
+    "mode": "deep-interview",
+    "sessionId": null,
+    "updatedAt": "2026-04-13T02:14:38.435Z",
+    "updatedBy": "state_write_tool"
+  }
+}

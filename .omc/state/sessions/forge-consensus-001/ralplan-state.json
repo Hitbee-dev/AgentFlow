@@ -1,0 +1,11 @@
+{
+  "active": true,
+  "current_phase": "planner",
+  "task_description": "Forge (formerly agentcli) — multi-agent CLI orchestrator consensus planning",
+  "_meta": {
+    "mode": "ralplan",
+    "sessionId": "forge-consensus-001",
+    "updatedAt": "2026-04-13T02:36:34.843Z",
+    "updatedBy": "state_write_tool"
+  }
+}

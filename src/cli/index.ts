@@ -2,6 +2,7 @@
 import { Command } from 'commander';
 import { buildAuthCommand } from './auth.ts';
 import { buildAgentsCommand } from './agents.ts';
+import { buildConfigCommand } from './config-cmd.ts';
 
 
 const program = new Command();
@@ -16,8 +17,8 @@ program.addCommand(buildAuthCommand());
 // Agents subcommand
 program.addCommand(buildAgentsCommand());
 
-// Subcommand stubs
-program.command('config').description('Manage agentflow configuration');
+// Config subcommands
+program.addCommand(buildConfigCommand());
 
 // Install command
 program.command('install')
