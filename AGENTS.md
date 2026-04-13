@@ -59,13 +59,22 @@
 - [x] **Ralplan 합의 완료** (2 iteration, Critic APPROVE)
   - 플랜: `/Users/chankim/dev/AgentFlow/.omc/plans/agentflow-implementation.md`
   - 총 추정: 46-67일 (Phase 0-8)
+- [x] **Phase 0-8 전체 구현 완료** (scaffold, 56개 파일, ~3200줄)
+  - Branch: `setup/initial-structure` (3 커밋)
+  - Binary: `dist/agentflow` (648 modules, bun compile)
+  - 검증: auth/agents/config/install/pipeline/tui 모든 커맨드 동작 확인
 
 ### 미완료 / 다음 세션에서 해야 할 작업
 
 #### 🔴 지금 해야 할 것
-**Phase 0 구현 시작**: `setup/initial-structure` 브랜치에서 시작
-- 플랜: `/Users/chankim/dev/AgentFlow/.omc/plans/agentflow-implementation.md`
-- Branch: `git checkout -b setup/initial-structure`
+**GitHub push 필요** — Hitbee-dev 계정 PAT 필요 (현재 CK-Genon으로 인증됨)
+```bash
+git remote set-url origin https://<HITBEE_TOKEN>@github.com/Hitbee-dev/AgentFlow.git
+git push -u origin setup/initial-structure
+```
+
+**PR 생성** — `setup/initial-structure` → `master`
+- 모든 Phase 0-8 구현 완료 (3 커밋, 56개 파일, ~3200줄)
 
 #### 🟢 이후 구현 순서 (Phase별)
 
