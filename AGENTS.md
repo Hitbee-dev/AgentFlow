@@ -1,0 +1,180 @@
+# AgentFlow — Session Handoff
+
+> 이 파일은 세션 재시작 시 다음 Agent가 컨텍스트를 완전히 이어받기 위한 핸드오프 문서입니다.
+> 작업 완료 후 이 파일을 업데이트해주세요.
+
+---
+
+## 프로젝트 정체성
+
+| 항목 | 값 |
+|------|-----|
+| **프로젝트명** | AgentFlow |
+| **npm 패키지명** | `agentflow-cli` |
+| **바이너리 명령어** | `agentflow` |
+| **GitHub Repo** | `Hitbee-dev/AgentFlow` (구 이름: Agent-CLI) |
+| **로컬 경로** | `/Users/chankim/dev/AgentFlow` |
+| **라이선스** | Apache-2.0 |
+| **런타임** | Bun |
+| **현재 버전** | 0.0.1 (플레이스홀더, npm 선점용) |
+
+---
+
+## 프로젝트 개요
+
+**AgentFlow**는 다중 AI 에이전트 CLI 오케스트레이터입니다.
+
+- **k9s-style TUI**: `agentflow` 실행 시 즉시 에이전트 모니터링 대시보드 표시
+- **멀티 프로바이더**: Claude (OAuth), Gemini (CLI/OAuth), OpenAI (API Key) 동시 지원
+- **에이전트 런타임**: 각 Agent = 독립적인 tmux 세션 (격리, 충돌 없음)
+- **하이브리드 작업 분배**: 자동 분배 기본, `@agent-name 작업` 으로 수동 지정 가능
+- **공지 브로드캐스트**: 메시지 큐 방식 (`.agent-cli/queue/broadcast.jsonl`), 작업 중인 Agent는 완료 후 반영
+- **완전 자동 개발 파이프라인**: branch → plan → work → security review → code review → QA → PR
+- **서버 없음**: 완전 로컬 전용, OS keychain에 인증 정보 저장
+- **`./claude/` 절대 커밋 금지**: gitignore로 관리
+
+### 참고 레포 (소스코드 가져올 곳)
+
+| 레포 | 경로 | 역할 |
+|------|------|------|
+| claude-code | `/Users/chankim/dev/claude-code` | **베이스 포크** — CLI(Commander.js+React/Ink), AgentTool, OAuth, LLM 루프 |
+| oh-my-claudecode | `/Users/chankim/dev/oh-my-claudecode` | **에이전트 엔진** — 19개 에이전트, 38개 스킬, 55모듈 팀 엔진 |
+| opencode | `/Users/chankim/dev/opencode_init/opencode` | **멀티 프로바이더** — Vercel AI SDK 기반 프로바이더 추상화 |
+| oh-my-opencode | `/Users/chankim/dev/opencode_init/oh-my-opencode` | **패턴** — TmuxSessionManager, BackgroundManager |
+| paperclip | `/Users/chankim/dev/paperclip` | **인증 패턴만** — 멀티 프로바이더 크리덴셜 구조 |
+
+---
+
+## 현재 상태 (세션 종료 시점)
+
+### 완료된 작업
+- [x] Deep Interview 완료 (10라운드, 최종 모호도 16%)
+- [x] Spec 파일 작성: `/Users/chankim/dev/AgentFlow/.omc/specs/deep-interview-agent-cli.md`
+- [x] 프로젝트명 결정: AgentFlow (agentflow)
+- [x] npm 패키지명 선점: `agentflow-cli` (0.0.1 publish 완료 ✓)
+- [x] GitHub Repo: `Hitbee-dev/AgentFlow` (git remote 수정 완료)
+- [x] **Ralplan 합의 완료** (2 iteration, Critic APPROVE)
+- [x] **Phase 0-8 전체 구현 + 심화 완료** (731 modules, bun compile)
+  - Branch: `setup/initial-structure` (8 커밋)
+  - Binary: `~/.local/bin/agentflow` (글로벌 설치 완료)
+  - 41개 테스트 통과 (6 파일)
+
+### 구현된 전체 커맨드
+
+| 커맨드 | 설명 |
+|--------|------|
+| `agentflow` | TUI 대시보드 실행 |
+| `agentflow status` | 에이전트/태스크/인증 전체 현황 |
+| `agentflow auth login` | Claude OAuth PKCE 로그인 |
+| `agentflow auth add --provider openai --key sk-xxx` | API 키 등록 |
+| `agentflow auth status` | 인증 상태 |
+| `agentflow auth logout` | 인증 삭제 |
+| `agentflow agents list` | 에이전트 목록 |
+| `agentflow agents info <name>` | 에이전트 상세 |
+| `agentflow agents add --name <n> --provider <p>` | 에이전트 등록 |
+| `agentflow agents start <name>` | tmux 워커 기동 |
+| `agentflow agents start-all` | 전체 에이전트 기동 |
+| `agentflow agents stop <name>` | 에이전트 중지 |
+| `agentflow agents stop-all` | 전체 에이전트 중지 |
+| `agentflow agents attach <name>` | tmux 세션 연결 |
+| `agentflow agents logs <name>` | 에이전트 로그 |
+| `agentflow run <task>` | 태스크 제출 (자동 분배) |
+| `agentflow run --agent <n> <task>` | 특정 에이전트에 제출 |
+| `agentflow run --wait <task>` | 태스크 완료 대기 |
+| `agentflow chat <agent> <message>` | 직접 대화 (스트리밍) |
+| `agentflow broadcast <msg>` | 전체 에이전트 공지 |
+| `agentflow tasks list` | 태스크 목록 |
+| `agentflow tasks show <id>` | 태스크 상세 |
+| `agentflow tasks cancel <id>` | 태스크 취소 |
+| `agentflow pipeline start <desc>` | 파이프라인 시작 |
+| `agentflow pipeline status [id]` | 파이프라인 + 게이트 현황 |
+| `agentflow pipeline cancel <id>` | 파이프라인 취소 |
+| `agentflow config get <key>` | 설정 조회 |
+| `agentflow config set <key> <val>` | 설정 변경 |
+| `agentflow config set-prompt <agent> <prompt>` | 에이전트 프롬프트 변경 |
+| `agentflow config show` | 전체 설정 출력 |
+| `agentflow config models` | 지원 모델 목록 |
+| `agentflow install` | 초기 설정 마법사 |
+
+### 미완료 / 다음 세션에서 해야 할 작업
+
+#### 🔴 지금 해야 할 것
+**GitHub push 필요** — Hitbee-dev 계정 PAT 필요 (현재 CK-Genon으로 인증됨)
+```bash
+git remote set-url origin https://<HITBEE_TOKEN>@github.com/Hitbee-dev/AgentFlow.git
+git push -u origin setup/initial-structure
+```
+
+**PR 생성** — `setup/initial-structure` → `master`
+- 모든 구현 완료 (8 커밋, ~4000줄, 41 테스트)
+
+#### 🟢 이후 구현 순서 (Phase별)
+
+**Phase 0: Repo 초기 세팅**
+- Branch: `setup/initial-structure`
+- `.gitignore` 추가 (`./claude/`, `.agent-cli/` 제외)
+- TypeScript + Bun 프로젝트 초기화
+- 디렉토리 구조 생성 (`src/cli`, `src/auth`, `src/providers`, `src/agents`, `src/runtime`, `src/tui`, `src/orchestrator`, `src/pipeline`, `src/queue`, `src/config`)
+
+**Phase 1: Auth Layer** (`feature/auth-layer`)
+- Claude Code OAuth 포팅 (`claude-code/src/services/oauth/`)
+- OS Keychain 연동
+- Gemini CLI OAuth, OpenAI API Key 지원
+
+**Phase 2: Provider Layer** (`feature/provider-layer`)
+- OpenCode의 Vercel AI SDK 기반 멀티 프로바이더 포팅
+- `opencode/packages/opencode/src/provider/`
+
+**Phase 3: Agent Runtime** (`feature/agent-runtime`)
+- tmux 세션 매니저 구현 (세션명: `agentflow-<name>`)
+- OMC 19개 에이전트 정의 포팅
+- 메시지 큐 구현
+
+**Phase 4: k9s-style TUI** (`feature/tui`)
+- React/Ink 기반 (claude-code의 컴포넌트 시스템 활용)
+- 에이전트 테이블, 네임스페이스 필터, 명령 입력창
+
+**Phase 5: Task Orchestrator** (`feature/orchestrator`)
+- 자동 분배 + `@agent-name` 수동 지정
+- 브로드캐스트 큐
+
+**Phase 6: Dev Pipeline** (`feature/dev-pipeline`)
+- 완전 자동: branch → plan → work → review → QA → PR
+- OMC team engine 기반 (`oh-my-claudecode/src/team/`)
+
+**Phase 7: Security & Config** (`feature/security-config`)
+- API key keychain 저장, gitignore 자동 관리
+
+**Phase 8: Install & Distribution** (`feature/install`)
+- `agentflow install` 마법사
+- `bun build --compile` 단일 바이너리
+- npm publish (실제 구현 버전)
+
+---
+
+## 개발 워크플로우 규칙 (모든 작업에 적용)
+
+1. **기능마다 Branch 생성** (`feature/<name>`, `fix/<name>`, `setup/<name>`)
+2. **Plan 먼저 작성** → `./claude/Plans/<branch-name>.md` (gitignored)
+3. **PR 조건**: security-reviewer PASS + code-reviewer PASS + QA PASS 필수
+4. **`./claude/` 절대 commit 금지**
+5. **각 PR은 master branch로 머지**
+
+---
+
+## 핵심 파일 위치
+
+| 파일 | 경로 |
+|------|------|
+| Deep Interview Spec | `/Users/chankim/dev/AgentFlow/.omc/specs/deep-interview-agent-cli.md` |
+| 초기 Plan | `~/.claude/plans/zany-knitting-planet.md` |
+| package.json | `/Users/chankim/dev/AgentFlow/package.json` |
+| ralplan 상태 | `/Users/chankim/dev/AgentFlow/.omc/state/sessions/forge-consensus-001/ralplan-state.json` |
+
+---
+
+## 다음 세션 시작 체크리스트
+
+- [x] `npm publish` 완료 (`npm view agentflow-cli` 로 확인 가능)
+- [ ] ralplan 재시작: `/oh-my-claudecode:plan --consensus --direct .omc/specs/deep-interview-agent-cli.md`
+- [ ] ralplan 완료 후 autopilot으로 구현 시작
