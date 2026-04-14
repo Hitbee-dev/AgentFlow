@@ -1,10 +1,17 @@
 import { keychain } from './keychain.ts';
 import { generateCodeVerifier, generateCodeChallenge, generateState } from './crypto.ts';
 
-const CLIENT_ID = 'claude-cli-client';
-const AUTHORIZE_URL = 'https://claude.ai/oauth/authorize';
-const TOKEN_URL = 'https://claude.ai/oauth/token';
-const SCOPES = ['openid', 'profile', 'email', 'offline_access'];
+const CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
+const AUTHORIZE_URL = 'https://claude.com/cai/oauth/authorize';
+const TOKEN_URL = 'https://platform.claude.com/v1/oauth/token';
+const OAUTH_BETA_HEADER = 'oauth-2025-04-20';
+const SCOPES = [
+  'user:profile',
+  'user:inference',
+  'user:sessions:claude_code',
+  'user:mcp_servers',
+  'user:file_upload',
+];
 
 const ACCOUNT_ACCESS_TOKEN = 'claude-access-token';
 const ACCOUNT_REFRESH_TOKEN = 'claude-refresh-token';
@@ -101,6 +108,7 @@ export class ClaudeOAuth {
     const redirectUri = `http://localhost:${port}/callback`;
 
     const authUrl = new URL(AUTHORIZE_URL);
+    authUrl.searchParams.set('code', 'true');  // show Claude Max upsell on login page
     authUrl.searchParams.set('client_id', CLIENT_ID);
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('redirect_uri', redirectUri);
@@ -127,7 +135,10 @@ export class ClaudeOAuth {
 
     const response = await fetch(TOKEN_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'anthropic-beta': OAUTH_BETA_HEADER,
+      },
       body: body.toString(),
     });
 
@@ -164,7 +175,10 @@ export class ClaudeOAuth {
 
     const response = await fetch(TOKEN_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'anthropic-beta': OAUTH_BETA_HEADER,
+      },
       body: body.toString(),
     });
 
