@@ -1,17 +1,25 @@
 {
   "name": "agentflow-cli",
-  "version": "0.0.1",
+  "version": "0.1.2",
   "description": "Multi-agent CLI orchestrator — k9s-style monitoring for AI agents",
-  "keywords": ["ai", "agents", "cli", "orchestrator", "multi-agent", "claude", "gemini"],
+  "keywords": [
+    "ai",
+    "agents",
+    "cli",
+    "orchestrator",
+    "multi-agent",
+    "claude",
+    "gemini"
+  ],
   "homepage": "https://github.com/Hitbee-dev/AgentFlow",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Hitbee-dev/AgentFlow.git"
+    "url": "git+https://github.com/Hitbee-dev/AgentFlow.git"
   },
   "license": "Apache-2.0",
   "author": "Hitbee-dev",
   "bin": {
-    "agentflow": "./dist/agentflow"
+    "agentflow": "bin/agentflow"
   },
   "scripts": {
     "dev": "bun run src/cli/index.ts",
@@ -24,7 +32,8 @@
     "bun": ">=1.0.0"
   },
   "files": [
-    "dist"
+    "dist",
+    "bin"
   ],
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.69",
