@@ -1,12 +1,38 @@
 import { Command } from 'commander';
 import { ClaudeOAuth } from '../auth/claude-oauth.ts';
+import { AnthropicKeyAuth } from '../auth/anthropic-key.ts';
 import { GeminiOAuth } from '../auth/gemini-oauth.ts';
 import { OpenAIAuth } from '../auth/openai.ts';
 import { authRegistry } from '../auth/registry.ts';
 
 const claudeOAuth = new ClaudeOAuth();
+const anthropicKeyAuth = new AnthropicKeyAuth();
 const geminiOAuth = new GeminiOAuth();
 const openAIAuth = new OpenAIAuth();
+
+/** Upgrade default agent models to Sonnet/Opus when API key is available. */
+async function upgradeAgentModels(): Promise<void> {
+  const fs = await import('fs');
+  const configPath = '.agent-cli/config.json';
+  let config: { agents?: Record<string, { name: string; model: string; [k: string]: unknown }> } = {};
+  if (fs.existsSync(configPath)) {
+    try { config = JSON.parse(fs.readFileSync(configPath, 'utf-8')); } catch { /* ignore */ }
+  }
+  const MODEL_MAP: Record<string, string> = {
+    planner: 'claude-opus-4-6',
+    coder: 'claude-sonnet-4-6',
+    reviewer: 'claude-sonnet-4-6',
+    security: 'claude-opus-4-6',
+    qa: 'claude-sonnet-4-6',
+  };
+  config.agents ??= {};
+  for (const [name, model] of Object.entries(MODEL_MAP)) {
+    config.agents[name] = { ...(config.agents[name] ?? { name }), name, model };
+  }
+  fs.mkdirSync('.agent-cli', { recursive: true });
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+  console.log('Agent models upgraded: planner/security → Opus, coder/reviewer/qa → Sonnet');
+}
 
 export function buildAuthCommand(): Command {
   const auth = new Command('auth').description('Manage provider authentication');
@@ -36,7 +62,17 @@ export function buildAuthCommand(): Command {
       try {
         switch (provider) {
           case 'claude':
-            await claudeOAuth.login();
+            if (key) {
+              if (!key.startsWith('sk-ant-')) {
+                console.error('Anthropic API keys must start with sk-ant-');
+                process.exit(1);
+              }
+              await anthropicKeyAuth.setKey(key);
+              console.log('Anthropic API key stored. Sonnet and Opus models now available.');
+              await upgradeAgentModels();
+            } else {
+              await claudeOAuth.login();
+            }
             break;
 
           case 'gemini':

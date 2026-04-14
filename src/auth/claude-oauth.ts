@@ -11,11 +11,15 @@ const SCOPES = [
   'user:sessions:claude_code',
   'user:mcp_servers',
   'user:file_upload',
+  'org:create_api_key',
 ];
 
 const ACCOUNT_ACCESS_TOKEN = 'claude-access-token';
 const ACCOUNT_REFRESH_TOKEN = 'claude-refresh-token';
 const ACCOUNT_EXPIRES_AT = 'claude-expires-at';
+const ACCOUNT_SESSION_KEY = 'claude-session-key';
+
+const CREATE_API_KEY_URL = 'https://api.anthropic.com/api/oauth/claude_cli/create_api_key';
 
 interface TokenResponse {
   access_token: string;
@@ -125,21 +129,23 @@ export class ClaudeOAuth {
 
     const authCode = await codePromise;
 
-    const body = new URLSearchParams({
+    // Token exchange uses JSON body (not form-urlencoded) + state field
+    const body = {
       grant_type: 'authorization_code',
       code: authCode,
       redirect_uri: redirectUri,
       client_id: CLIENT_ID,
       code_verifier: codeVerifier,
-    });
+      state,
+    };
 
     const response = await fetch(TOKEN_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
         'anthropic-beta': OAUTH_BETA_HEADER,
       },
-      body: body.toString(),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -159,6 +165,12 @@ export class ClaudeOAuth {
     ]);
 
     console.log('Claude authentication successful.');
+
+    // Exchange for session API key (enables Sonnet/Opus access)
+    const sessionKey = await this.exchangeForSessionKey();
+    if (sessionKey) {
+      console.log('Session API key obtained — Sonnet and Opus models available.');
+    }
   }
 
   async refresh(): Promise<void> {
@@ -167,19 +179,19 @@ export class ClaudeOAuth {
       throw new Error('No refresh token stored. Please run `agentflow auth login` first.');
     }
 
-    const body = new URLSearchParams({
+    const body = {
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
       client_id: CLIENT_ID,
-    });
+    };
 
     const response = await fetch(TOKEN_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
         'anthropic-beta': OAUTH_BETA_HEADER,
       },
-      body: body.toString(),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -204,6 +216,7 @@ export class ClaudeOAuth {
       keychain.delete(ACCOUNT_ACCESS_TOKEN),
       keychain.delete(ACCOUNT_REFRESH_TOKEN),
       keychain.delete(ACCOUNT_EXPIRES_AT),
+      keychain.delete(ACCOUNT_SESSION_KEY),
     ]);
   }
 
@@ -222,6 +235,35 @@ export class ClaudeOAuth {
     }
 
     return true;
+  }
+
+  /** Exchange OAuth access token for a temporary session API key (enables Sonnet/Opus). */
+  async exchangeForSessionKey(): Promise<string | null> {
+    const accessToken = await keychain.get(ACCOUNT_ACCESS_TOKEN);
+    if (!accessToken) return null;
+
+    try {
+      const response = await fetch(CREATE_API_KEY_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta': OAUTH_BETA_HEADER,
+        },
+      });
+      if (!response.ok) return null;
+      const data = await response.json() as { api_key?: string };
+      if (!data.api_key) return null;
+      await keychain.set(ACCOUNT_SESSION_KEY, data.api_key);
+      return data.api_key;
+    } catch {
+      return null;
+    }
+  }
+
+  async getSessionKey(): Promise<string | null> {
+    return keychain.get(ACCOUNT_SESSION_KEY);
   }
 
   async getAccessToken(): Promise<string | null> {

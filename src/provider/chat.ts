@@ -16,15 +16,22 @@ export async function* chat(
   // Get provider model instance
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let providerModel: any;
+  // Pass maxTokens at model-creation level — some SDK versions ignore it in streamText.
+  // Cast to any: provider typings only declare one argument but the runtime accepts settings.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const modelSettings: any = options.maxTokens ? { maxTokens: options.maxTokens } : {};
   if (providerId === 'anthropic') {
     const provider = await providerRegistry.getAnthropicProvider();
-    providerModel = provider(modelId as string);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    providerModel = (provider as any)(modelId as string, modelSettings);
   } else if (providerId === 'google') {
     const provider = await providerRegistry.getGoogleProvider();
-    providerModel = provider(modelId as string);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    providerModel = (provider as any)(modelId as string, modelSettings);
   } else if (providerId === 'openai') {
     const provider = await providerRegistry.getOpenAIProvider();
-    providerModel = provider(modelId as string);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    providerModel = (provider as any)(modelId as string, modelSettings);
   } else {
     throw new Error(`Unsupported provider: ${providerId}`);
   }

@@ -259,7 +259,15 @@ tasksCmd
       console.error(`Task not found: ${id}`);
       process.exit(1);
     }
-    console.log(JSON.stringify(task, null, 2));
+    console.log(`ID:          ${task.id}`);
+    console.log(`Description: ${task.description}`);
+    console.log(`State:       ${task.state}`);
+    console.log(`Agent:       ${task.assignedAgent ?? '—'}`);
+    console.log(`Created:     ${task.createdAt}`);
+    console.log(`Updated:     ${task.updatedAt}`);
+    if (task.result) {
+      console.log(`\nResult:\n${task.result}`);
+    }
   });
 
 tasksCmd
@@ -354,9 +362,9 @@ program
     if (stopped.length > 0) {
       console.log(`Starting ${stopped.length} agent(s)...`);
       for (const agent of stopped) {
-        const alive = await tmuxManager.isSessionAlive(agent.name);
+        const alive = tmuxManager.isSessionAlive(agent.name);
         if (!alive) {
-          await tmuxManager.createSession(agent.name, `agentflow agent-worker ${agent.name}`);
+          tmuxManager.createSession(agent.name, `agentflow agent-worker ${agent.name}`);
           console.log(`  ↑ ${agent.name}`);
         }
       }
@@ -485,7 +493,7 @@ program
     const agentRows = await Promise.all(
       agents.map(async a => {
         const hb = readHeartbeat(a.name);
-        const sessionAlive = await tmuxManager.isSessionAlive(a.name);
+        const sessionAlive = tmuxManager.isSessionAlive(a.name);
         const heartbeatAlive = isAlive(a.name);
         let status = 'stopped';
         if (sessionAlive && heartbeatAlive) status = 'running';
@@ -553,8 +561,8 @@ program
 
     while (true) {
       try {
-        const entry = dequeue();
-        if (entry && (entry.targetAgent === name || !entry.targetAgent)) {
+        const entry = dequeue(name);
+        if (entry) {
           const task = getTask(entry.taskId);
           if (task && (task.state === 'pending' || task.state === 'assigned')) {
             console.log(`[agentflow-worker] Task ${task.id.slice(0, 8)}: ${task.description}`);

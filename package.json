@@ -15,7 +15,7 @@
   },
   "scripts": {
     "dev": "bun run src/cli/index.ts",
-    "build": "bun build --compile --minify src/cli/index.ts --outfile dist/agentflow",
+    "build": "bun build --compile src/cli/index.ts --outfile dist/agentflow",
     "test": "bun test",
     "lint": "bunx biome check src/"
   },

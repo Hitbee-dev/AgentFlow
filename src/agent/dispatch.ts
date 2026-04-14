@@ -46,14 +46,29 @@ export function enqueue(taskId: string, targetAgent?: string): void {
   fs.appendFileSync(DISPATCH_FILE, JSON.stringify(entry) + '\n', 'utf-8');
 }
 
-/** Remove and return the first task in the queue, or null if empty. */
-export function dequeue(): DispatchEntry | null {
+/**
+ * Remove and return the first task for this agent from the queue.
+ * Only removes entries matching agentName (or unassigned if agentName omitted).
+ * Entries for OTHER agents are left in place — critical for multi-agent correctness.
+ */
+export function dequeue(agentName?: string): DispatchEntry | null {
   const entries = readAllEntries();
   if (entries.length === 0) return null;
-  const [first, ...rest] = entries;
+
+  const idx = entries.findIndex(e =>
+    !agentName || !e.targetAgent || e.targetAgent === agentName,
+  );
+  if (idx === -1) return null;
+
+  const entry = entries[idx]!;
+  const remaining = [...entries.slice(0, idx), ...entries.slice(idx + 1)];
   ensureQueueDir();
-  fs.writeFileSync(DISPATCH_FILE, rest.map(e => JSON.stringify(e)).join('\n') + (rest.length > 0 ? '\n' : ''), 'utf-8');
-  return first;
+  fs.writeFileSync(
+    DISPATCH_FILE,
+    remaining.map(e => JSON.stringify(e)).join('\n') + (remaining.length > 0 ? '\n' : ''),
+    'utf-8',
+  );
+  return entry;
 }
 
 /** Return the current number of items in the dispatch queue. */

@@ -10,22 +10,27 @@ function sessionName(agentName: string): string {
   return `${SESSION_PREFIX}${agentName}`;
 }
 
-async function tmuxRun(args: string[]): Promise<{ stdout: string; exitCode: number }> {
-  const proc = Bun.spawn(['tmux', ...args], {
+// Use spawnSync — async Bun.spawn + piped stdout/stderr can deadlock
+// when the subprocess writes enough to fill OS pipe buffers before we read.
+function tmuxRun(args: string[]): { stdout: string; exitCode: number } {
+  const proc = Bun.spawnSync(['tmux', ...args], {
     stdout: 'pipe',
-    stderr: 'pipe',
+    stderr: 'ignore',
   });
-  const stdout = await new Response(proc.stdout).text();
-  const exitCode = await proc.exited;
-  return { stdout: stdout.trim(), exitCode };
+  return {
+    stdout: new TextDecoder().decode(proc.stdout).trim(),
+    exitCode: proc.exitCode ?? 1,
+  };
 }
 
 export class TmuxManager {
   /** Create a new detached tmux session for an agent. */
-  async createSession(agentName: string, startCommand: string): Promise<void> {
+  createSession(agentName: string, startCommand: string): void {
     const name = sessionName(agentName);
-    const { exitCode } = await tmuxRun([
-      'new-session', '-d', '-s', name, startCommand,
+    // Pass -c to share the same working directory — CLI and worker must
+    // agree on the .agent-cli/ path since all paths are relative.
+    const { exitCode } = tmuxRun([
+      'new-session', '-d', '-s', name, '-c', process.cwd(), startCommand,
     ]);
     if (exitCode !== 0) {
       throw new Error(`Failed to create tmux session for agent "${agentName}"`);
@@ -33,23 +38,19 @@ export class TmuxManager {
   }
 
   /** Kill a tmux session for an agent. */
-  async destroySession(agentName: string): Promise<void> {
-    const name = sessionName(agentName);
-    await tmuxRun(['kill-session', '-t', name]);
+  destroySession(agentName: string): void {
+    tmuxRun(['kill-session', '-t', sessionName(agentName)]);
   }
 
   /** Check if a tmux session is alive for an agent. */
-  async isSessionAlive(agentName: string): Promise<boolean> {
-    const name = sessionName(agentName);
-    const { exitCode } = await tmuxRun(['has-session', '-t', name]);
+  isSessionAlive(agentName: string): boolean {
+    const { exitCode } = tmuxRun(['has-session', '-t', sessionName(agentName)]);
     return exitCode === 0;
   }
 
   /** List agent names that have active tmux sessions. */
-  async listSessions(): Promise<string[]> {
-    const { stdout, exitCode } = await tmuxRun([
-      'list-sessions', '-F', '#{session_name}',
-    ]);
+  listSessions(): string[] {
+    const { stdout, exitCode } = tmuxRun(['list-sessions', '-F', '#{session_name}']);
     if (exitCode !== 0 || !stdout) return [];
     return stdout
       .split('\n')
@@ -58,29 +59,22 @@ export class TmuxManager {
   }
 
   /** Send input to an agent's tmux session. */
-  async sendInput(agentName: string, input: string): Promise<void> {
-    const name = sessionName(agentName);
-    const { exitCode } = await tmuxRun([
-      'send-keys', '-t', name, input, 'Enter',
-    ]);
+  sendInput(agentName: string, input: string): void {
+    const { exitCode } = tmuxRun(['send-keys', '-t', sessionName(agentName), input, 'Enter']);
     if (exitCode !== 0) {
       throw new Error(`Failed to send input to agent "${agentName}"`);
     }
   }
 
   /** Capture the last N lines from an agent's tmux pane. */
-  async capturePane(agentName: string, lines: number = 50): Promise<string> {
-    const name = sessionName(agentName);
-    const { stdout } = await tmuxRun([
-      'capture-pane', '-t', name, '-p', '-S', `-${lines}`,
-    ]);
+  capturePane(agentName: string, lines = 50): string {
+    const { stdout } = tmuxRun(['capture-pane', '-t', sessionName(agentName), '-p', '-S', `-${lines}`]);
     return stdout;
   }
 
   /** Attach to an agent's tmux session in the current terminal. */
   async attachSession(agentName: string): Promise<void> {
-    const name = sessionName(agentName);
-    const proc = Bun.spawn(['tmux', 'attach-session', '-t', name], {
+    const proc = Bun.spawn(['tmux', 'attach-session', '-t', sessionName(agentName)], {
       stdin: 'inherit',
       stdout: 'inherit',
       stderr: 'inherit',

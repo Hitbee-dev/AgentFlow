@@ -10,7 +10,7 @@ import { writeHeartbeat, startHeartbeat, stopHeartbeat } from './heartbeat.js';
 import { readMessages, clearMessages } from './messaging.js';
 import { readBroadcasts } from './broadcast.js';
 import { updateTask } from './tasks.js';
-import { chat } from '../provider/chat.js';
+import { chatViaCli } from '../provider/chat-cli.js';
 import { toModelID } from '../provider/types.js';
 import type { Task } from './tasks.js';
 import type { ChatMessage } from '../provider/types.js';
@@ -44,12 +44,17 @@ export async function runAgent(ctx: ExecutionContext): Promise<void> {
   // Update task to running state
   updateTask(task.id, { state: 'running', assignedAgent: agentName });
 
+  const systemPrompt = `${agentConfig.prompt}
+
+When you have fully completed the task, end your final response with exactly: TASK COMPLETE`;
+
   const conversationHistory: ChatMessage[] = [
     { role: 'user', content: `Task: ${task.description}` },
   ];
 
   let turnCount = 0;
   let completed = false;
+  let lastResponse = '';
 
   try {
     // 3. Start message loop
@@ -79,12 +84,37 @@ export async function runAgent(ctx: ExecutionContext): Promise<void> {
 
       // c. Build messages array and stream response
       let assistantResponse = '';
-      for await (const chunk of chat(conversationHistory, {
-        model: toModelID(agentConfig.model),
-        system: agentConfig.prompt,
-      })) {
-        if (chunk.type === 'text') {
-          assistantResponse += chunk.text;
+      let rateLimitRetries = 0;
+      while (rateLimitRetries <= 3) {
+        try {
+          for await (const chunk of chatViaCli(conversationHistory, {
+            model: toModelID(agentConfig.model),
+            system: systemPrompt,
+            maxTokens: 4096,
+          })) {
+            if (chunk.type === 'text') {
+              assistantResponse += chunk.text;
+            }
+          }
+          break;
+        } catch (err: unknown) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const e = err as any;
+          const msg: string = e?.message ?? '';
+          const isRateLimit =
+            msg.includes('rate_limit') ||
+            msg.includes('429') ||
+            e?.name?.includes?.('RetryError') ||
+            e?.reason === 'maxRetriesExceeded' ||
+            msg.includes('Failed after');
+          if (isRateLimit && rateLimitRetries < 3) {
+            rateLimitRetries++;
+            const waitMs = 30_000 * rateLimitRetries; // 30s, 60s, 90s
+            console.log(`[agentflow-worker] Rate limit hit — waiting ${waitMs / 1000}s (attempt ${rateLimitRetries}/3)`);
+            await Bun.sleep(waitMs);
+          } else {
+            throw err;
+          }
         }
       }
 
@@ -95,19 +125,18 @@ export async function runAgent(ctx: ExecutionContext): Promise<void> {
 
       // e. Update heartbeat (startHeartbeat timer handles this automatically)
 
-      // f. Check if task is done (simple heuristic: look for completion signals)
-      const lowerResponse = assistantResponse.toLowerCase();
-      if (
-        lowerResponse.includes('task complete') ||
-        lowerResponse.includes('task completed') ||
-        lowerResponse.includes('done with the task')
-      ) {
+      // f. Check if task is done
+      if (assistantResponse.includes('TASK COMPLETE')) {
         completed = true;
+        // Strip the completion signal from the saved result
+        lastResponse = assistantResponse.replace(/\s*TASK COMPLETE\s*$/, '').trim();
+      } else {
+        lastResponse = assistantResponse;
       }
     }
 
     // 4. Update task state
-    updateTask(task.id, { state: completed ? 'completed' : 'failed' });
+    updateTask(task.id, { state: completed ? 'completed' : 'failed', result: lastResponse || undefined });
   } catch (err) {
     updateTask(task.id, { state: 'failed' });
     throw err;

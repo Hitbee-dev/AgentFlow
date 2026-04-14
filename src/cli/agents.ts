@@ -38,7 +38,7 @@ export function buildAgentsCommand(): Command {
       // Fetch session status for all agents in parallel
       const statuses = await Promise.all(
         agentList.map(async a => {
-          const sessionAlive = await tmuxManager.isSessionAlive(a.name);
+          const sessionAlive = tmuxManager.isSessionAlive(a.name);
           const heartbeatAlive = isAlive(a.name);
           let status = 'stopped';
           if (sessionAlive && heartbeatAlive) status = 'running';
@@ -122,14 +122,14 @@ export function buildAgentsCommand(): Command {
         console.error(`Agent "${name}" not found. Use "agentflow agents add" to register it.`);
         process.exit(1);
       }
-      const alive = await tmuxManager.isSessionAlive(name);
+      const alive = tmuxManager.isSessionAlive(name);
       if (alive) {
         console.log(`Agent "${name}" session is already running.`);
         return;
       }
       // Run the agent worker process inside tmux
       const workerCmd = `agentflow agent-worker ${name}`;
-      await tmuxManager.createSession(name, workerCmd);
+      tmuxManager.createSession(name, workerCmd);
       console.log(`Agent "${name}" started (tmux session: agentflow-${name})`);
       console.log(`  Attach: agentflow agents attach ${name}`);
     });
@@ -139,12 +139,12 @@ export function buildAgentsCommand(): Command {
     .command('stop <name>')
     .description('Stop the tmux session for an agent')
     .action(async (name: string) => {
-      const alive = await tmuxManager.isSessionAlive(name);
+      const alive = tmuxManager.isSessionAlive(name);
       if (!alive) {
         console.log(`Agent "${name}" has no active session.`);
         return;
       }
-      await tmuxManager.destroySession(name);
+      tmuxManager.destroySession(name);
       console.log(`Agent "${name}" session stopped.`);
     });
 
@@ -153,7 +153,7 @@ export function buildAgentsCommand(): Command {
     .command('attach <name>')
     .description('Attach to an agent\'s tmux session')
     .action(async (name: string) => {
-      const alive = await tmuxManager.isSessionAlive(name);
+      const alive = tmuxManager.isSessionAlive(name);
       if (!alive) {
         console.error(`Agent "${name}" has no active session. Use "agentflow agents start ${name}" first.`);
         process.exit(1);
@@ -167,7 +167,7 @@ export function buildAgentsCommand(): Command {
     .description('Show recent log output from an agent tmux session')
     .option('-n, --lines <n>', 'Number of lines to show', '50')
     .action(async (name: string, opts: { lines: string }) => {
-      const alive = await tmuxManager.isSessionAlive(name);
+      const alive = tmuxManager.isSessionAlive(name);
       if (!alive) {
         console.error(`Agent "${name}" has no active session.`);
         process.exit(1);
@@ -195,7 +195,7 @@ export function buildAgentsCommand(): Command {
         console.error(`Agent "${name}" not found.`);
         process.exit(1);
       }
-      const sessionAlive = await tmuxManager.isSessionAlive(name);
+      const sessionAlive = tmuxManager.isSessionAlive(name);
       const heartbeatAlive = isAlive(name);
       let status = 'stopped';
       if (sessionAlive && heartbeatAlive) status = 'running';
@@ -227,13 +227,13 @@ export function buildAgentsCommand(): Command {
         return;
       }
       for (const agent of agentList) {
-        const alive = await tmuxManager.isSessionAlive(agent.name);
+        const alive = tmuxManager.isSessionAlive(agent.name);
         if (alive) {
           console.log(`  ${agent.name}: already running`);
           continue;
         }
         const workerCmd = `agentflow agent-worker ${agent.name}`;
-        await tmuxManager.createSession(agent.name, workerCmd);
+        tmuxManager.createSession(agent.name, workerCmd);
         console.log(`  ${agent.name}: started`);
       }
       console.log('\nAll agents started. Use "agentflow agents list" to check status.');
@@ -246,12 +246,12 @@ export function buildAgentsCommand(): Command {
     .action(async () => {
       const agentList = listAgents();
       for (const agent of agentList) {
-        const alive = await tmuxManager.isSessionAlive(agent.name);
+        const alive = tmuxManager.isSessionAlive(agent.name);
         if (!alive) {
           console.log(`  ${agent.name}: not running`);
           continue;
         }
-        await tmuxManager.destroySession(agent.name);
+        tmuxManager.destroySession(agent.name);
         console.log(`  ${agent.name}: stopped`);
       }
     });

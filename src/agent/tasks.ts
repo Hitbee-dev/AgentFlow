@@ -18,6 +18,7 @@ export interface Task {
   updatedAt: string;
   branch?: string;
   planPath?: string;
+  result?: string;
 }
 
 const TASKS_DIR = path.join('.agent-cli', 'tasks');

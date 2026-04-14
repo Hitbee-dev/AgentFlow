@@ -9,13 +9,13 @@ export function resolveModel(
   // Check if it's a tier alias (fast/standard/deep)
   if (['fast', 'standard', 'deep'].includes(modelIdOrTier)) {
     const provider = preferredProvider ?? 'anthropic';
-    return TIER_ALIASES[provider]?.[modelIdOrTier] ?? toModelID('claude-sonnet-4-6');
+    return TIER_ALIASES[provider]?.[modelIdOrTier] ?? toModelID('claude-haiku-4-5-20251001');
   }
   // Check if it's a known model ID
   const found = MODEL_CATALOG.find(m => m.id === modelIdOrTier);
   if (found) return found.id;
   // Default fallback
-  return toModelID('claude-sonnet-4-6');
+  return toModelID('claude-haiku-4-5-20251001');
 }
 
 export function getModelInfo(modelId: ModelID) {

@@ -1,5 +1,6 @@
 import type { ProviderConfig } from '../types/index.ts';
 import { ClaudeOAuth } from './claude-oauth.ts';
+import { AnthropicKeyAuth } from './anthropic-key.ts';
 import { GeminiOAuth } from './gemini-oauth.ts';
 import { OpenAIAuth } from './openai.ts';
 
@@ -11,6 +12,7 @@ export interface ProviderAuthStatus {
 }
 
 const claudeOAuth = new ClaudeOAuth();
+const anthropicKeyAuth = new AnthropicKeyAuth();
 const geminiOAuth = new GeminiOAuth();
 const openAIAuth = new OpenAIAuth();
 
@@ -58,9 +60,22 @@ export class AuthRegistry {
     // Gemini and OpenAI do not have a refresh mechanism yet
   }
 
+  /**
+   * Returns the best available Anthropic API key:
+   * 1. Direct API key (sk-ant-...) — set via `auth add --provider claude --key`
+   * 2. OAuth session key — obtained via token exchange after login with org:create_api_key scope
+   * Both unlock Sonnet/Opus. Returns null if only OAuth bearer is available.
+   */
+  async getAnthropicApiKey(): Promise<string | null> {
+    if (await anthropicKeyAuth.isValid()) return anthropicKeyAuth.getKey();
+    return claudeOAuth.getSessionKey();
+  }
+
   async getAccessToken(providerId: string): Promise<string | null> {
     switch (providerId) {
       case 'anthropic':
+        // Prefer direct API key (unlocks Sonnet/Opus) over OAuth (Haiku only)
+        if (await anthropicKeyAuth.isValid()) return anthropicKeyAuth.getKey();
         return claudeOAuth.getAccessToken();
       case 'google':
         return geminiOAuth.getAccessToken();
